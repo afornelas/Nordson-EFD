@@ -13,7 +13,7 @@ def send_write_command(fn):
             command = fn(self,*args, **kwargs)
             self.send_enq()
             response = self.recieve_packet()  # Read ACK/NAK
-            if response == b'\x06':  # ACK
+            if response == b'\x06' or response == b'\x06\x02':  # ACK
                 vprint("ACK received, sending command",4)
                 self.send_data(command)
                 response = self.recieve_packet()
@@ -62,16 +62,21 @@ class NordsonEFD:
 
     def send_data(self, data):
         if self.serial_connection and self.serial_connection.is_open:
-            self.serial_connection.write(data.encode())
+            self.serial_connection.write(data)
             print(f"Sent data: {data}")
         else:
             print("Serial port is not open. Cannot send data.")
 
     def recieve_packet(self):
         if self.serial_connection and self.serial_connection.is_open:
-            packet = self.serial_connection.read_until(b'\x03')  # Read until ETX
+            char = self.serial_connection.read()  # Read first character
+            if char == b'\x06':
+                vprint(f'Received acknowledgement.',4)
+                return char
+            else:
+                packet = self.serial_connection.read_until(b'\x03')  # Read until ETX
             vprint(f"Received packet: {packet}",4)
-            return packet
+            return char + packet
         else:
             vprint("Serial port is not open. Cannot receive packet.",3)
             return None
